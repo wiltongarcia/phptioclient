@@ -11,7 +11,7 @@ class TioServerConnection {
     var $stop;
     var $log_sends;
     var $running_queries;
-	
+    
     function TioServerConnection($host = "", $port = "") {
         if (($this->s = socket_create(AF_INET, SOCK_STREAM, SOL_TCP)) == false)
             Throw new Exception("socket_create() failed: reason: ".socket_strerror(socket_last_error())."\n");
@@ -34,21 +34,27 @@ class TioServerConnection {
         if (socket_connect($this->s, $host, $port) == false)
             Throw new Exception("socket_connect() failed.\nReason: ($result) ".socket_strerror(socket_last_error($socket))."\n");
     }
-	
-	function close(){
-		socket_close($this->s);
-	}
-	
-	function receiveLine(){
-		$i =  ereg("\r\n", $this->receiveBuffer);
-		while(!$i){
-			socket_recv ($socket , $buf , 4096);
-			$this->receiveBuffer += $buf;
-			if(!$this->receiveBuffer)
-				Throw new Exception("error reading from connection socket");
-			$i =  ereg("\r\n", $this->receiveBuffer);
-		}
-	}
+    
+    function close() {
+        socket_close($this->s);
+    }
+    
+    function receiveLine() {
+        $i = ereg("\r\n", $this->receiveBuffer);
+        while (!$i) {
+            socket_recv($socket, $buf, 4096);
+            $this->receiveBuffer += $buf;
+            if (!$this->receiveBuffer)
+                Throw new Exception("error reading from connection socket");
+            $i = ereg("\r\n", $this->receiveBuffer);
+        }
+        $parts = split("\r\n", $this->receiveBuffer);
+        $ret = $parts[0];
+        array_shift($parts);
+        $this->receiveBuffer = join("\r\n", $parts);
+        
+        return $ret;
+    }
     
 }
 
