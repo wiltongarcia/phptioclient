@@ -56,6 +56,44 @@ class TioServerConnection {
         return $ret;
     }
     
+    function sendCommand($command, $args = array()) {
+        $buffer = $command;
+        if (sizeof($args)) {
+            $buffer .= " ".join(" ", $args);
+        }
+        if (substr($buffer, strlen($buffer) - 2) != "\r\n")
+            $buffer .= "\r\n";
+        socket_send($this->s, $buffer, strlen($buffer));
+        if ($this->log_sends)
+            echo $buffer;
+        if ($this->dontWaitForAnswers) {
+            $this->pendingAnswerCount += 1;
+            return;
+        }
+        try {
+        	return $this->receiveAnswer();
+        }
+        catch(exception $e) {
+        	echo $e;
+        }
+    }
+	
+	function receiveAnswer(){
+		while(true){
+			$line = $this->receiveLine();
+			$params = split(" ", $line);
+			$current_params = 0;
+			$answer_type = $params[$current_param];
+			if(answer_type == 'answer'){
+				
+			}
+		}
+	}
+	
+	function ping(){
+		$this->sendCommand("ping");
+	}
+    
 }
 
 ?>

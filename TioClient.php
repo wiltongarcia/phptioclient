@@ -5,11 +5,12 @@ class TioClient extends TioServerConnection {
 	var $port;
 	var $container;
     function connect($url) {
+    	echo "passo->connect\n";
         $this->parseUrl($url);
 		if($this->container)
 			Throw new Exception("container specified, you must inform a url with just the server/port");
-			
-		return TioServerConnection($this->host,$this->port);
+		echo "passo->tioserver\n";
+		return new TioServerConnection($this->host,$this->port);
     }
     
     function parseUrl($url) {
