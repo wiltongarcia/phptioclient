@@ -38,6 +38,17 @@ class TioServerConnection {
 	function close(){
 		socket_close($this->s);
 	}
+	
+	function receiveLine(){
+		$i =  ereg("\r\n", $this->receiveBuffer);
+		while(!$i){
+			socket_recv ($socket , $buf , 4096);
+			$this->receiveBuffer += $buf;
+			if(!$this->receiveBuffer)
+				Throw new Exception("error reading from connection socket");
+			$i =  ereg("\r\n", $this->receiveBuffer);
+		}
+	}
     
 }
 
