@@ -71,28 +71,40 @@ class TioServerConnection {
             return;
         }
         try {
-        	return $this->receiveAnswer();
+            return $this->receiveAnswer();
         }
         catch(exception $e) {
-        	echo $e;
+            echo $e;
         }
     }
-	
-	function receiveAnswer(){
-		while(true){
-			$line = $this->receiveLine();
-			$params = split(" ", $line);
-			$current_params = 0;
-			$answer_type = $params[$current_param];
-			if(answer_type == 'answer'){
-				
-			}
-		}
-	}
-	
-	function ping(){
-		$this->sendCommand("ping");
-	}
+    
+    function receiveAnswer() {
+        while (true) {
+            $line = $this->receiveLine();
+            $params = split(" ", $line);
+            $current_param = 0;
+            $answer_type = $params[$current_param];
+            if (answer_type == 'answer') {
+                $current_param++;
+                $answer_result = $params[$current_param];
+                if (answer_result != 'ok')
+                    Throw new Exception($line);
+                $current_param++;
+                if ($current_param + 1 > sizeof($params))
+                    return;
+                $parameter_type = $params[current_param];
+                if (parameter_type == '')
+                    return;
+				//to escrevendo ainda.... cansei de colocar $ em tudo
+				//if($parameter_type == 'pong')
+                   // return ' '.join($params[$current_param:])
+            }
+        }
+    }
+    
+    function ping() {
+        $this->sendCommand("ping");
+    }
     
 }
 
