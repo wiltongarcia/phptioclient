@@ -95,9 +95,44 @@ class TioServerConnection {
                 $parameter_type = $params[current_param];
                 if (parameter_type == '')
                     return;
-				//to escrevendo ainda.... cansei de colocar $ em tudo
-				//if($parameter_type == 'pong')
-                   // return ' '.join($params[$current_param:])
+                if ($parameter_type == 'pong')
+                    return join(" ", array_slice($params, $current_param, (sizeof($params) - 1)));
+                if ($parameter_type == 'handle')
+                    return array('handle'=>$params[$current_param + 1], 'type'=>$params[current_param + 2]);
+                if ($parameter_type == 'diff_map' || $parameter_type == 'diff_list')
+                    return array('diff_type'=>$parameter_type, 'diff_handle'=>$params[current_param + 1]);
+                if ($parameter_type == 'count' || parameter_type == 'name')
+                    return array("parameter_type"=>$params[$current_param + 1]);
+                if ($parameter_type == 'data')
+                    return $this->receiveDataAnswer($params, $current_param);
+                if ($parameter_type == 'query') {
+                    $query_id = $params[$current_param + 1];
+                    $this->registerQuery(query_id);
+                    continue;
+                }
+                Throw new Exception('Invalid parameter type: '.$parameter_type."\n");
+            } else if ($answer_type == 'diff_list' || $answer_type == 'diff_map') {
+                $diff_handle = $params[1];
+                return array($answer_type, $diff_handle);
+            } else if ($answer_type == 'query') {
+                $query_id = $params[1];
+                $what = $params[2];
+                if ($what == 'item')
+                    $this->addToQuery($query_id, $this->receiveDataAnswer($params, 2));
+                else if ($what == 'end')
+                    return $this->finishQuery(query_id);
+            } else if ($answer_type == 'event') {
+                $event = new Event();
+                $current_param++;
+                $event->handle = (int) $params[$current_param];
+                $current_param++;
+                $event->name = $params[$current_param];
+                if ($event->name != 'clear')
+                    $event->data = this.receiveDataAnswer($params, current_param);
+                $this.handleEvent(event);
+                
+                if (!wait_until_answer)
+                    return;
             }
         }
     }
@@ -106,6 +141,27 @@ class TioServerConnection {
         $this->sendCommand("ping");
     }
     
+    function receiveDataAnswer($params, $current_param) {
+
+    
+    }
+    
+    function addToQuery($query_id , $data ) {
+        $this->running_queries[query_id].append(data);
+    }
+	
+	function finishQuery($query_id){
+		$query = $this->running_queries[query_id];
+        //del $this->running_queries[query_id];
+        return $query;
+	}
+    
+}
+
+class Event {
+    var $handle;
+    var $name;
+    var $data;
 }
 
 ?>
