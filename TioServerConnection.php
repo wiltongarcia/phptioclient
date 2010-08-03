@@ -40,30 +40,37 @@ class TioServerConnection {
     }
     
     function receiveLine() {
-        $i = ereg("\r\n", $this->receiveBuffer);
-        while (!$i) {
-            socket_recv($socket, $buf, 4096);
-            $this->receiveBuffer += $buf;
+        $i = preg_match("/\r\n/", $this->receiveBuffer);
+        while ($i <= 0) {
+            socket_recv($this->s, $buf, 4096, 0);
+            $this->receiveBuffer .= $buf;
             if (!$this->receiveBuffer)
                 Throw new Exception("error reading from connection socket");
-            $i = ereg("\r\n", $this->receiveBuffer);
+                
+            $i = preg_match("/\r\n/", $this->receiveBuffer);
         }
-        $parts = split("\r\n", $this->receiveBuffer);
+        $parts = preg_split("/\r\n/", $this->receiveBuffer);
         $ret = $parts[0];
-        array_shift($parts);
-        $this->receiveBuffer = join("\r\n", $parts);
-        
+        $parts = array_shift($parts);
+		for($i=1;$i<sizeof($parts);$i++)
+			$nparts[$i-1] = $parts[$i];
+		$parts = $nparts; 
+        if (sizeof($parts) > 0)
+            $this->receiveBuffer = join("\r\n", $parts);
+		else 
+			$this->receiveBuffer = "";
         return $ret;
     }
     
     function sendCommand($command, $args = array()) {
         $buffer = $command;
-        if (sizeof($args)) {
+        //$this->log_sends = TRUE;
+        if (sizeof($args) > 0) {
             $buffer .= " ".join(" ", $args);
         }
         if (substr($buffer, strlen($buffer) - 2) != "\r\n")
             $buffer .= "\r\n";
-        socket_send($this->s, $buffer, strlen($buffer));
+        socket_send($this->s, $buffer, strlen($buffer), 0);
         if ($this->log_sends)
             echo $buffer;
         if ($this->dontWaitForAnswers) {
@@ -84,19 +91,20 @@ class TioServerConnection {
             $params = split(" ", $line);
             $current_param = 0;
             $answer_type = $params[$current_param];
-            if (answer_type == 'answer') {
+            if ($answer_type == 'answer') {
                 $current_param++;
                 $answer_result = $params[$current_param];
-                if (answer_result != 'ok')
+                if ($answer_result != 'ok')
                     Throw new Exception($line);
                 $current_param++;
                 if ($current_param + 1 > sizeof($params))
                     return;
-                $parameter_type = $params[current_param];
-                if (parameter_type == '')
+                $parameter_type = $params[$current_param];
+                if ($parameter_type == '')
                     return;
-                if ($parameter_type == 'pong')
+                if ($parameter_type == "pong"){
                     return join(" ", array_slice($params, $current_param, (sizeof($params) - 1)));
+				}
                 if ($parameter_type == 'handle')
                     return array('handle'=>$params[$current_param + 1], 'type'=>$params[current_param + 2]);
                 if ($parameter_type == 'diff_map' || $parameter_type == 'diff_list')
@@ -146,15 +154,15 @@ class TioServerConnection {
     
     }
     
-    function addToQuery($query_id , $data ) {
+    function addToQuery($query_id, $data) {
         $this->running_queries[query_id].append(data);
     }
-	
-	function finishQuery($query_id){
-		$query = $this->running_queries[query_id];
+    
+    function finishQuery($query_id) {
+        $query = $this->running_queries[query_id];
         //del $this->running_queries[query_id];
         return $query;
-	}
+    }
     
 }
 
