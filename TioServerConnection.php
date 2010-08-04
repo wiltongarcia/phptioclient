@@ -52,13 +52,13 @@ class TioServerConnection {
         $parts = preg_split("/\r\n/", $this->receiveBuffer);
         $ret = $parts[0];
         $parts = array_shift($parts);
-		for($i=1;$i<sizeof($parts);$i++)
-			$nparts[$i-1] = $parts[$i];
-		$parts = $nparts; 
+        for ($i = 1; $i < sizeof($parts); $i++)
+            $nparts[$i - 1] = $parts[$i];
+        $parts = $nparts;
         if (sizeof($parts) > 0)
             $this->receiveBuffer = join("\r\n", $parts);
-		else 
-			$this->receiveBuffer = "";
+        else
+            $this->receiveBuffer = "";
         return $ret;
     }
     
@@ -102,9 +102,9 @@ class TioServerConnection {
                 $parameter_type = $params[$current_param];
                 if ($parameter_type == '')
                     return;
-                if ($parameter_type == "pong"){
+                if ($parameter_type == "pong") {
                     return join(" ", array_slice($params, $current_param, (sizeof($params) - 1)));
-				}
+                }
                 if ($parameter_type == 'handle')
                     return array('handle'=>$params[$current_param + 1], 'type'=>$params[current_param + 2]);
                 if ($parameter_type == 'diff_map' || $parameter_type == 'diff_list')
@@ -164,12 +164,55 @@ class TioServerConnection {
         return $query;
     }
     
+    function createContainer($name, $type) {
+        return $this->createOrOpenContainer('create', $name, $type);
+    }
+    /*
+     def __CreateOrOpenContainer(self, command, name, type):
+     info = self.SendCommand(command, name if not type else name + ' ' + type)
+     handle = info['handle']
+     type = info['type']
+     container = RemoteContainer(self, handle, type, name)
+     self.containers[int(handle)] = container
+     return container
+     */
+    
+    function createOrOpenContainer($command, $name, $type) {
+        if (!type)
+            $args = array($name);
+        else
+            $args = array($name, $type);
+        $info = $this->sendCommand($command, $args);
+        $handle = $info['handle'];
+        $type = $info['type'];
+        $container = new RemoteContainer($this, $handle, $type, $name);
+        $this->containers[(int) $handle] = $container;
+        return $container;
+    }
+    
 }
 
 class Event {
     var $handle;
     var $name;
     var $data;
+}
+
+class RemoteContainer {
+    var $manager;
+    var $handle;
+    var $type;
+    var $name;
+    function RemoteContainer($manager, $handle, $type, $name) {
+        $this->manager = $manager;
+        $this->handle = $handle;
+        $this->type = $type;
+        $this->name = $name;
+    }
+    
+    function clear() {
+    	return $this->manager->sendCommand('clear', array($this->handle));
+    }
 }
 
 ?>
