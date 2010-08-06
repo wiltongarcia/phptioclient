@@ -167,15 +167,6 @@ class TioServerConnection {
     function createContainer($name, $type) {
         return $this->createOrOpenContainer('create', $name, $type);
     }
-    /*
-     def __CreateOrOpenContainer(self, command, name, type):
-     info = self.SendCommand(command, name if not type else name + ' ' + type)
-     handle = info['handle']
-     type = info['type']
-     container = RemoteContainer(self, handle, type, name)
-     self.containers[int(handle)] = container
-     return container
-     */
     
     function createOrOpenContainer($command, $name, $type) {
         if (!type)
@@ -188,6 +179,25 @@ class TioServerConnection {
         $container = new RemoteContainer($this, $handle, $type, $name);
         $this->containers[(int) $handle] = $container;
         return $container;
+    }
+    
+    /*
+     param = str(handle)
+     if not start is None:
+     param += ' ' + str(start)
+     self.sinks.setdefault(int(handle), {}).setdefault(filter, []).append(sink)
+     self.SendCommand('subscribe', param)
+     */
+    
+    function subscribe($handle, $sink, $filter = '*', $start = NULL) {
+        $param = (string) $handle;
+        if ($start != NULL)
+            $param .= " ".(string) $start;
+        if (isset($this->sinks[$handle][$filter]) && in_array($sink, $this->sinks[$handle][$filter]))
+            $this->sinks[$handle][$filter] = array($sink);
+        else
+            array_push($this->sinks[$handle][$filter], $sink);
+        $this->sendCommand("subscribe", array($param));
     }
     
 }
@@ -211,8 +221,38 @@ class RemoteContainer {
     }
     
     function clear() {
-    	return $this->manager->sendCommand('clear', array($this->handle));
+        return $this->manager->sendCommand('clear', array($this->handle));
     }
+    
+    function subscribe($sink, $event_filter = '*', $start = NULL) {
+        $this->manager->subscribe($this->handle, $sink, $event_filter, $start);
+    }
+    
+    function pushBack($value, $metadata = NULL) {
+        return $this->sendDataCommand('push_back', NULL, $value, $metadata);
+    }
+    
+    function sendDataCommand($command, $key = NULL, $value = NULL, $metadata = NULL) {
+        return $this->manager->sendCommand($command, $this->handle, $key, $value, $metadata);
+    }
+    
+    function insert($key, $value, $metadata = NULL) {
+        return $this->sendDataCommand('insert', $key, $value, $metadata);
+    }
+    
+    function pushFront($value, $metadata = NULL) {
+        return $this->sendDataCommand('push_front', NULL, $value, $metadata);
+    }
+	
+	/*
+	 *  def get(self, key, withKeyAndMetadata=False):
+        key, value, metadata = self.send_data_command('get', key, None, None)
+        return value if not withKeyAndMetadata else (key, value, metadata)
+	 * */
+	
+	function get($key,$withKeyAndMetadata=False){
+		
+	}
 }
 
 ?>
