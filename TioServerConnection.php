@@ -64,7 +64,7 @@ class TioServerConnection {
     
     function sendCommand($command, $args = array()) {
         $buffer = $command;
-        //$this->log_sends = TRUE;
+        $this->log_sends = TRUE;
         if (sizeof($args) > 0) {
             $buffer .= " ".join(" ", $args);
         }
@@ -136,8 +136,8 @@ class TioServerConnection {
                 $current_param++;
                 $event->name = $params[$current_param];
                 if ($event->name != 'clear')
-                    $event->data = this.receiveDataAnswer($params, current_param);
-                $this.handleEvent(event);
+                    $event->data = $this->receiveDataAnswer($params, $current_param);
+                $this->handleEvent($event);
                 
                 if (!wait_until_answer)
                     return;
@@ -145,14 +145,91 @@ class TioServerConnection {
         }
     }
     
+    function sendDataCommand($command, $parameter, $key, $value, $metadata) {
+        $buffer = $command;
+        if (strlen($parameter) > 0 && $parameter != NULL)
+            $buffer .= " $parameter";
+        $key = $this->serializeData($key);
+        $value = $this->serializeData($value);
+        $metadata = $this->serializeData($metadata);
+        $buffer .= $this->getFieldSpec('key', $key);
+        $buffer .= $this->getFieldSpec('value', $value);
+        $buffer .= $this->getFieldSpec('metadata', $metadata);
+        $buffer .= "\r\n";
+        if ($key)
+            $buffer .= $key[0]."\r\n";
+        if ($value)
+            $buffer .= $value[0]."\r\n";
+        if ($metadata)
+            $buffer .= $metadata[0]."\r\n";
+        if ($this->log_sends)
+            echo $buffer;
+        return $this->sendCommand($buffer);
+    }
+    
+    function serializeData($data) {
+        if (($data == NULL || $data == "" ) && !is_numeric($data))
+            return NULL;
+        if (is_string($data))
+            return array($data, 'string');
+        if (is_int($data)||is_numeric($data))
+            return array((string) $data, 'int');
+        if (is_float($var))
+            return array((string) $data, 'double');
+        Throw new Exception("not supported data type\n");
+    }
+    
+    function getFieldSpec($field_name, $field_data_and_type) {
+        if ($field_data_and_type != NULL)
+            return ' '.$field_name.' '.$field_data_and_type[1].' '.(string) strlen($field_data_and_type[0]);
+        else
+            return "";
+    }
+    
     function ping() {
         $this->sendCommand("ping");
     }
     
     function receiveDataAnswer($params, $current_param) {
-
-    
+        $fields = array();
+        while ($current_param + 1 < sizeof($params)) {
+            $current_param++;
+            $name = $params[$current_param];
+            $current_param++;
+            $type = $params[$current_param];
+            $current_param++;
+            $size = (int) $params[$current_param];
+			
+			$data_buffer = substr($this->receiveData($size + 2), 0, $size);
+            if ($type == 'int')
+                $value = (int) $data_buffer;
+            else if ($type == 'double')
+                $value = (float) $data_buffer;
+            else if ($type == 'string')
+                $value = $data_buffer;
+            else
+                Throw new Exception("not supported data type: $type\n");
+			$fields[$name] = $value;
+			return array($fields['key'],$fields['value'],$fields['key']);
+        }
     }
+    
+    function receiveData($size) {
+        while (strlen(receiveBuffer) < $size) {
+            socket_recv($this->s, $buf, 4096, 0);
+            $this->receiveBuffer .= $buf;
+            $ret = substr($string, $size);
+            $this->receiveBuffer = substr($string, $size, (strlen($this->receiveBuffer)) - $size);
+            return $ret;
+        }
+    }
+	
+	function handleEvent($event){
+		if (!isset($this->pendingEvents[$event->handle]))
+            $this->pendingEvents[$event->handle] = array($event);
+        else
+            array_push($this->pendingEvents[$event->handle], $event);
+	}
     
     function addToQuery($query_id, $data) {
         $this->running_queries[query_id].append(data);
@@ -160,7 +237,6 @@ class TioServerConnection {
     
     function finishQuery($query_id) {
         $query = $this->running_queries[query_id];
-        //del $this->running_queries[query_id];
         return $query;
     }
     
@@ -181,19 +257,11 @@ class TioServerConnection {
         return $container;
     }
     
-    /*
-     param = str(handle)
-     if not start is None:
-     param += ' ' + str(start)
-     self.sinks.setdefault(int(handle), {}).setdefault(filter, []).append(sink)
-     self.SendCommand('subscribe', param)
-     */
-    
     function subscribe($handle, $sink, $filter = '*', $start = NULL) {
         $param = (string) $handle;
         if ($start != NULL)
             $param .= " ".(string) $start;
-        if (isset($this->sinks[$handle][$filter]) && in_array($sink, $this->sinks[$handle][$filter]))
+        if (!isset($this->sinks[$handle][$filter]))
             $this->sinks[$handle][$filter] = array($sink);
         else
             array_push($this->sinks[$handle][$filter], $sink);
@@ -233,7 +301,7 @@ class RemoteContainer {
     }
     
     function sendDataCommand($command, $key = NULL, $value = NULL, $metadata = NULL) {
-        return $this->manager->sendCommand($command, $this->handle, $key, $value, $metadata);
+        return $this->manager->sendDataCommand($command, $this->handle, $key, $value, $metadata);
     }
     
     function insert($key, $value, $metadata = NULL) {
@@ -243,16 +311,20 @@ class RemoteContainer {
     function pushFront($value, $metadata = NULL) {
         return $this->sendDataCommand('push_front', NULL, $value, $metadata);
     }
-	
-	/*
-	 *  def get(self, key, withKeyAndMetadata=False):
-        key, value, metadata = self.send_data_command('get', key, None, None)
-        return value if not withKeyAndMetadata else (key, value, metadata)
-	 * */
-	
-	function get($key,$withKeyAndMetadata=False){
-		
-	}
+    
+    /*
+     *  def get(self, key, withKeyAndMetadata=False):
+     key, value, metadata = self.send_data_command('get', key, None, None)
+     return value if not withKeyAndMetadata else (key, value, metadata)
+     * */
+    
+    function get($key, $withKeyAndMetadata = False) {
+        $rtr= $this->sendDataCommand('get', $key, NULL, NULL);
+        if (!$withKeyAndMetadata)
+			return $rtr[1];
+		else
+			return $rtr;
+    }
 }
 
 ?>
