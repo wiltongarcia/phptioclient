@@ -105,9 +105,9 @@ class TioServerConnection {
                     return join(" ", array_slice($params, $current_param, (sizeof($params) - 1)));
                 }
                 if ($parameter_type == 'handle')
-                    return array('handle'=>$params[$current_param + 1], 'type'=>$params[current_param + 2]);
+                    return array('handle'=>$params[$current_param + 1], 'type'=>$params[$current_param + 2]);
                 if ($parameter_type == 'diff_map' || $parameter_type == 'diff_list')
-                    return array('diff_type'=>$parameter_type, 'diff_handle'=>$params[current_param + 1]);
+                    return array('diff_type'=>$parameter_type, 'diff_handle'=>$params[$current_param + 1]);
                 if ($parameter_type == 'count' || parameter_type == 'name')
                     return array("parameter_type"=>$params[$current_param + 1]);
                 if ($parameter_type == 'data')
@@ -167,11 +167,11 @@ class TioServerConnection {
     }
     
     function serializeData($data) {
-        if (($data == NULL || $data == "" ) && !is_numeric($data))
+        if (($data == NULL || $data == "") && !is_numeric($data))
             return NULL;
         if (is_string($data))
             return array($data, 'string');
-        if (is_int($data)||is_numeric($data))
+        if (is_int($data) || is_numeric($data))
             return array((string) $data, 'int');
         if (is_float($var))
             return array((string) $data, 'double');
@@ -198,8 +198,8 @@ class TioServerConnection {
             $type = $params[$current_param];
             $current_param++;
             $size = (int) $params[$current_param];
-			
-			$data_buffer = substr($this->receiveData($size + 2), 0, $size);
+            
+            $data_buffer = substr($this->receiveData($size + 2), 0, $size);
             if ($type == 'int')
                 $value = (int) $data_buffer;
             else if ($type == 'double')
@@ -208,8 +208,8 @@ class TioServerConnection {
                 $value = $data_buffer;
             else
                 Throw new Exception("not supported data type: $type\n");
-			$fields[$name] = $value;
-			return array($fields['key'],$fields['value'],$fields['key']);
+            $fields[$name] = $value;
+            return array($fields['key'], $fields['value'], $fields['key']);
         }
     }
     
@@ -223,15 +223,25 @@ class TioServerConnection {
         }
     }
 	
-	function handleEvent($event){
-		if (!isset($this->pendingEvents[$event->handle]))
+	/*def RegisterQuery(self, query_id):
+        self.running_queries[query_id] = []*/
+	
+	function registerQuery($query_id){
+		$this->running_queries = array();
+	}
+    
+    function handleEvent($event) {
+        if (!isset($this->pendingEvents[$event->handle]))
             $this->pendingEvents[$event->handle] = array($event);
         else
             array_push($this->pendingEvents[$event->handle], $event);
-	}
+    }
     
     function addToQuery($query_id, $data) {
-        $this->running_queries[query_id].append(data);
+    	if (!isset($this->running_queries[$query_id]))
+            $this->running_queries[query_id] = array($data);
+        else
+            array_push($this->running_queries[query_id], $data);
     }
     
     function finishQuery($query_id) {
@@ -266,64 +276,70 @@ class TioServerConnection {
             array_push($this->sinks[$handle][$filter], $sink);
         $this->sendCommand("subscribe", array($param));
     }
-	
-	/*def DispatchEvents(self, handle):
-        events = self.pendingEvents.get(handle)
+    
+    /*def DispatchEvents(self, handle):
+     events = self.pendingEvents.get(handle)
+     if not events:
+     return
+     
+     for e in events:
+     if e.name == 'wnp_key':
+     key = e.data[0]
+     f = self.poppers[int(handle)]['wnp_key'][key].pop()
+     if f:
+     f(self.containers[e.handle], e.name, *e.data)
+     elif e.name == 'wnp_next':
+     f = self.poppers[int(handle)]['wnp_next'].pop()
+     if f:
+     f(self.containers[e.handle], e.name, *e.data)
+     else:
+     handle = int(handle)
+     sinks = self.sinks[handle].get(e.name)
+     if sinks is None:
+     sinks = self.sinks[handle].get('*', [])
+     for sink in sinks:
+     sink(self.containers[e.handle], e.name, *e.data)*/
 
-        if not events:
-            return
-        
-        for e in events:
-            if e.name == 'wnp_key':
-                key = e.data[0]
-                f = self.poppers[int(handle)]['wnp_key'][key].pop()
-                if f:
-                    f(self.containers[e.handle], e.name, *e.data)
-            elif e.name == 'wnp_next':
-                f = self.poppers[int(handle)]['wnp_next'].pop()
-                if f:
-                    f(self.containers[e.handle], e.name, *e.data)
-            else:
-                handle = int(handle)
-                sinks = self.sinks[handle].get(e.name)
-                if sinks is None:
-                    sinks = self.sinks[handle].get('*', [])
-                for sink in sinks:
-                    sink(self.containers[e.handle], e.name, *e.data)*/
+
+    function dispatchEvents($handle) {
+        $events = $this->pendingEvents[$handle];
+        if ( empty($events))
+            return;
+        foreach ($events as $e) {
+            if ($e->name == 'wnp_key') {
+                /*$key = $e->data[0];
+                 $f = array_pop($this->poppers[int(handle)]['wnp_key']);
+                 if($f)
+                 f(self.containers[e.handle], e.name, *e.data);*/
+            } else if ($e->name == 'wnp_next') {
+                /*f = self.poppers[int(handle)]['wnp_next'].pop()
+                 if f:
+                 f(self.containers[e.handle], e.name, *e.data)*/
+            } else {
+                $handle = (int) $handle;
+                $sinks = $this->sinks[$handle][$e->name];
+                if (is_null($sinks))
+                    $sinks = $this->sinks[$handle]['*'];
+                foreach ($sinks as $sink) {
+                    $sink($this->containers[$e->handle], $e->name, @$e->data);
+                }
+            }
+        }
+    }
+    
+    function dispatchAllEvents() {
+        foreach ($this->pendingEvents as $a) {
+            $this->dispatchEvents(key($this->pendingEvents));
+            next($this->pendingEvents);
+        }
+    }
+    
+    function diffStart($handle) {
+        return $this->sendCommand("diff_start $handle");
+    }
 	
-	function dispatchEvents($handle){
-		$events = $this->pendingEvents[$handle];
-		if(empty($events))
-			return;
-		foreach($events as $e){
-			if($e->name == 'wnp_key'){
-				/*$key = $e->data[0];
-				$f = array_pop($this->poppers[int(handle)]['wnp_key']);
-				if($f)
-					f(self.containers[e.handle], e.name, *e.data);*/
-			}
-			else if($e->name == 'wnp_next'){
-				/*f = self.poppers[int(handle)]['wnp_next'].pop()
-                if f:
-                    f(self.containers[e.handle], e.name, *e.data)*/
-			}
-			else{
-				$handle = (int)$handle;
-				$sinks = $this->sinks[$handle][$e->name];
-				if(is_null($sinks))
-					$sinks = $this->sinks[$handle]['*'];
-				foreach($sinks as $sink){
-					$sink($this->containers[$e->handle], $e->name, @$e->data);
-				}
-			}
-		}
-	}
-	
-	function dispatchAllEvents(){
-		foreach($this->pendingEvents as $a){
-			$this->dispatchEvents(key($this->pendingEvents));
-			next($this->pendingEvents); 
-		}
+	function diff($diff_handle){
+		return $this->sendCommand("diff $diff_handle");
 	}
     
 }
@@ -369,18 +385,27 @@ class RemoteContainer {
     function pushFront($value, $metadata = NULL) {
         return $this->sendDataCommand('push_front', NULL, $value, $metadata);
     }
-        
+    
     function get($key, $withKeyAndMetadata = False) {
-        $rtr= $this->sendDataCommand('get', $key, NULL, NULL);
+        $rtr = $this->sendDataCommand('get', $key, NULL, NULL);
         if (!$withKeyAndMetadata)
-			return $rtr[1];
-		else
-			return $rtr;
+            return $rtr[1];
+        else
+            return $rtr;
     }
-		
-	function set($key, $value, $metadata=NULL){
-		return $this->sendDataCommand('set', $key, $value, NULL);
-	}
+    
+    function set($key, $value, $metadata = NULL) {
+        return $this->sendDataCommand('set', $key, $value, NULL);
+    }
+    
+    function diffStart() {
+        $result = $this->manager->diffStart($this->handle);
+        return $result['diff_handle'];
+    }
+    
+    function diffQuery($diff_handle) {
+        return $this->manager->diff($diff_handle);
+    }
 }
 
 ?>
