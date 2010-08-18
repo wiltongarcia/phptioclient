@@ -64,7 +64,6 @@ class TioServerConnection {
     
     function sendCommand($command, $args = array()) {
         $buffer = $command;
-        $this->log_sends = TRUE;
         if (sizeof($args) > 0) {
             $buffer .= " ".join(" ", $args);
         }
@@ -267,6 +266,65 @@ class TioServerConnection {
             array_push($this->sinks[$handle][$filter], $sink);
         $this->sendCommand("subscribe", array($param));
     }
+	
+	/*def DispatchEvents(self, handle):
+        events = self.pendingEvents.get(handle)
+
+        if not events:
+            return
+        
+        for e in events:
+            if e.name == 'wnp_key':
+                key = e.data[0]
+                f = self.poppers[int(handle)]['wnp_key'][key].pop()
+                if f:
+                    f(self.containers[e.handle], e.name, *e.data)
+            elif e.name == 'wnp_next':
+                f = self.poppers[int(handle)]['wnp_next'].pop()
+                if f:
+                    f(self.containers[e.handle], e.name, *e.data)
+            else:
+                handle = int(handle)
+                sinks = self.sinks[handle].get(e.name)
+                if sinks is None:
+                    sinks = self.sinks[handle].get('*', [])
+                for sink in sinks:
+                    sink(self.containers[e.handle], e.name, *e.data)*/
+	
+	function dispatchEvents($handle){
+		$events = $this->pendingEvents[$handle];
+		if(empty($events))
+			return;
+		foreach($events as $e){
+			if($e->name == 'wnp_key'){
+				/*$key = $e->data[0];
+				$f = array_pop($this->poppers[int(handle)]['wnp_key']);
+				if($f)
+					f(self.containers[e.handle], e.name, *e.data);*/
+			}
+			else if($e->name == 'wnp_next'){
+				/*f = self.poppers[int(handle)]['wnp_next'].pop()
+                if f:
+                    f(self.containers[e.handle], e.name, *e.data)*/
+			}
+			else{
+				$handle = (int)$handle;
+				$sinks = $this->sinks[$handle][$e->name];
+				if(is_null($sinks))
+					$sinks = $this->sinks[$handle]['*'];
+				foreach($sinks as $sink){
+					$sink($this->containers[$e->handle], $e->name, @$e->data);
+				}
+			}
+		}
+	}
+	
+	function dispatchAllEvents(){
+		foreach($this->pendingEvents as $a){
+			$this->dispatchEvents(key($this->pendingEvents));
+			next($this->pendingEvents); 
+		}
+	}
     
 }
 
@@ -311,13 +369,7 @@ class RemoteContainer {
     function pushFront($value, $metadata = NULL) {
         return $this->sendDataCommand('push_front', NULL, $value, $metadata);
     }
-    
-    /*
-     *  def get(self, key, withKeyAndMetadata=False):
-     key, value, metadata = self.send_data_command('get', key, None, None)
-     return value if not withKeyAndMetadata else (key, value, metadata)
-     * */
-    
+        
     function get($key, $withKeyAndMetadata = False) {
         $rtr= $this->sendDataCommand('get', $key, NULL, NULL);
         if (!$withKeyAndMetadata)
@@ -325,6 +377,10 @@ class RemoteContainer {
 		else
 			return $rtr;
     }
+		
+	function set($key, $value, $metadata=NULL){
+		return $this->sendDataCommand('set', $key, $value, NULL);
+	}
 }
 
 ?>
