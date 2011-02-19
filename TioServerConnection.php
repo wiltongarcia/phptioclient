@@ -52,14 +52,21 @@ class TioServerConnection {
         $parts = preg_split("/\r\n/", $this->receiveBuffer);
         $ret = $parts[0];
         $parts = array_shift($parts);
+        $nparts = array();
         for ($i = 1; $i < sizeof($parts); $i++)
+        {
             $nparts[$i - 1] = $parts[$i];
+        }
         $parts = $nparts;
         if (sizeof($parts) > 0)
-            $this->receiveBuffer = join("\r\n", $parts);
-        else
+		{
+            $this->receiveBuffer = implode("\r\n", $parts);
+        }
+		else
+		{
             $this->receiveBuffer = "";
-        return $ret;
+        }
+		return $ret;
     }
     
     function sendCommand($command, $args = array()) {
@@ -87,7 +94,7 @@ class TioServerConnection {
     function receiveAnswer() {
         while (true) {
             $line = $this->receiveLine();
-            $params = split(" ", $line);
+            $params = explode(" ", $line);
             $current_param = 0;
             $answer_type = $params[$current_param];
             if ($answer_type == 'answer') {
@@ -222,13 +229,10 @@ class TioServerConnection {
             return $ret;
         }
     }
-	
-	/*def RegisterQuery(self, query_id):
-        self.running_queries[query_id] = []*/
-	
-	function registerQuery($query_id){
-		$this->running_queries = array();
-	}
+    
+    function registerQuery($query_id){
+        $this->running_queries[$query_id] = array();
+    }
     
     function handleEvent($event) {
         if (!isset($this->pendingEvents[$event->handle]))
@@ -238,7 +242,7 @@ class TioServerConnection {
     }
     
     function addToQuery($query_id, $data) {
-    	if (!isset($this->running_queries[$query_id]))
+        if (!isset($this->running_queries[$query_id]))
             $this->running_queries[query_id] = array($data);
         else
             array_push($this->running_queries[query_id], $data);
@@ -337,10 +341,10 @@ class TioServerConnection {
     function diffStart($handle) {
         return $this->sendCommand("diff_start $handle");
     }
-	
-	function diff($diff_handle){
-		return $this->sendCommand("diff $diff_handle");
-	}
+    
+    function diff($diff_handle){
+        return $this->sendCommand("diff $diff_handle");
+    }
     
 }
 

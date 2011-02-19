@@ -15,12 +15,12 @@ class TioClient extends TioServerConnection {
         if (substr($url, 0, 6) != "tio://")
             Throw new Exception("protocol not supported");
         try {
-        	$url = split("/",substr($url, 6));
+        	$url = explode("/",substr($url, 6));
 			if(sizeof($url)>1)
 				$this->container = $url[1];
-			$split_url = split(":", $url[0]);
-			$this->host =  $split_url[0];
-			$this->port = $split_url[1];
+			$explode_url = explode(":", $url[0]);
+			$this->host =  $explode_url[0];
+			$this->port = $explode_url[1];
         }catch(exception $e){
         	echo $e;
         }
